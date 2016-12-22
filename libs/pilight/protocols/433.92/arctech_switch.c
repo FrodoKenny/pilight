@@ -31,7 +31,7 @@
 #include "arctech_switch.h"
 
 #define LEARN_REPEATS			40
-#define NORMAL_REPEATS		10
+#define NORMAL_REPEATS		5
 #define PULSE_MULTIPLIER	4
 #define MIN_PULSE_LENGTH	274
 #define MAX_PULSE_LENGTH	320
