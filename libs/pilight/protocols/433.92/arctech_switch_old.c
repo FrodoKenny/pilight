@@ -47,14 +47,19 @@ static int validate(void) {
 	return -1;
 }
 
-static void createMessage(int id, int unit, int state) {
+static void createMessage(int id, int all, int unit, int state) {
 	arctech_switch_old->message = json_mkobject();
 	json_append_member(arctech_switch_old->message, "id", json_mknumber(id, 0));
-	json_append_member(arctech_switch_old->message, "unit", json_mknumber(unit, 0));
-	if(state == 1)
+	if(all == 1) {
+		json_append_member(arctech_switch_old->message, "all", json_mknumber(all, 0));
+	} else {
+		json_append_member(arctech_switch_old->message, "unit", json_mknumber(unit, 0));
+	}
+	if(state == 1) {
 		json_append_member(arctech_switch_old->message, "state", json_mkstring("on"));
-	else
+	} else {
 		json_append_member(arctech_switch_old->message, "state", json_mkstring("off"));
+	}
 }
 
 static void parseCode(void) {
@@ -62,20 +67,30 @@ static void parseCode(void) {
 	int len = (int)((double)AVG_PULSE_LENGTH*((double)PULSE_MULTIPLIER/2));
 
 	for(x=0;x<arctech_switch_old->rawlen-2;x+=4) {
-		if(arctech_switch_old->raw[x+3] > len) {
-			binary[i++] = 0;
+		if(arctech_switch_old->raw[x+3] < len) {
+			if(arctech_switch_old->raw[x+2] < len) {
+				binary[i++] = -1;
+			} else {
+				binary[i++] = 1;
+			}
 		} else {
-			binary[i++] = 1;
+			binary[i++] = 0;
 		}
 	}
 
-	int unit = binToDec(binary, 0, 3);
+	int id = binToDec(binary, 0, 3);
+	int all = 0;
+	int unit = -1;
+	if(binary[4] == -1 && binary[5] == -1 && binary[6] == -1 && binary[7] == -1) {
+		all = 1;
+	} else {
+		unit = binToDec(binary, 4, 7);
+	}
 	int state = binary[11];
-	int id = binToDec(binary, 4, 8);
-	createMessage(id, unit, state);
+	createMessage(id, all, unit, state);
 }
 
-static void createLow(int s, int e) {
+static void createHigh(int s, int e) {
 	int i;
 
 	for(i=s;i<=e;i+=4) {
@@ -86,7 +101,7 @@ static void createLow(int s, int e) {
 	}
 }
 
-static void createHigh(int s, int e) {
+static void createLow(int s, int e) {
 	int i;
 
 	for(i=s;i<=e;i+=4) {
@@ -97,23 +112,19 @@ static void createHigh(int s, int e) {
 	}
 }
 
-static void clearCode(void) {
-	createHigh(0,35);
-	createLow(36,47);
+static void createShort(int s, int e) {
+	int i;
+
+	for(i=s;i<=e;i+=4) {
+		arctech_switch_old->raw[i]=(AVG_PULSE_LENGTH);
+		arctech_switch_old->raw[i+1]=(PULSE_MULTIPLIER*AVG_PULSE_LENGTH);
+		arctech_switch_old->raw[i+2]=(AVG_PULSE_LENGTH);
+		arctech_switch_old->raw[i+3]=(AVG_PULSE_LENGTH);
+	}
 }
 
-static void createUnit(int unit) {
-	int binary[255];
-	int length = 0;
-	int i=0, x=0;
-
-	length = decToBinRev(unit, binary);
-	for(i=0;i<=length;i++) {
-		if(binary[i]==1) {
-			x=i*4;
-			createLow(x, x+3);
-		}
-	}
+static void clearCode(void) {
+	createLow(0,47);
 }
 
 static void createId(int id) {
@@ -125,13 +136,32 @@ static void createId(int id) {
 	for(i=0;i<=length;i++) {
 		if(binary[i]==1) {
 			x=i*4;
-			createLow(16+x, 16+x+3);
+			createHigh(x, x+3);
+		}
+	}
+}
+
+static void createUnit(int all, int unit) {
+	int binary[255];
+	int length = 0;
+	int i=0, x=0;
+
+	if(all == 1) {
+		createShort(16, 31);
+	} else {
+		length = decToBinRev(unit, binary);
+		for(i=0;i<=length;i++) {
+			if(binary[i]==1) {
+				x=i*4;
+				createHigh(16+x, 16+x+3);
+			}
 		}
 	}
 }
 
 static void createState(int state) {
-	if(state == 0) {
+	createHigh(36,43);
+	if(state == 1) {
 		createHigh(44,47);
 	}
 }
@@ -143,12 +173,15 @@ static void createFooter(void) {
 
 static int createCode(struct JsonNode *code) {
 	int id = -1;
+	int all = 0;
 	int unit = -1;
 	int state = -1;
 	double itmp = -1;
 
 	if(json_find_number(code, "id", &itmp) == 0)
 		id = (int)round(itmp);
+	if(json_find_number(code, "all", &itmp)	== 0)
+		all = (int)round(itmp);
 	if(json_find_number(code, "unit", &itmp) == 0)
 		unit = (int)round(itmp);
 	if(json_find_number(code, "off", &itmp) == 0)
@@ -156,7 +189,7 @@ static int createCode(struct JsonNode *code) {
 	else if(json_find_number(code, "on", &itmp) == 0)
 		state=1;
 
-	if(id == -1 || unit == -1 || state == -1) {
+	if(id == -1 || (all == 0 && unit == -1) || state == -1) {
 		logprintf(LOG_ERR, "arctech_switch_old: insufficient number of arguments");
 		return EXIT_FAILURE;
 	} else if(id > 31 || id < 0) {
@@ -166,10 +199,10 @@ static int createCode(struct JsonNode *code) {
 		logprintf(LOG_ERR, "arctech_switch_old: invalid unit range");
 		return EXIT_FAILURE;
 	} else {
-		createMessage(id, unit, state);
+		createMessage(id, all, unit, state);
 		clearCode();
-		createUnit(unit);
 		createId(id);
+		createUnit(all, unit);
 		createState(state);
 		createFooter();
 		arctech_switch_old->rawlen = RAW_LENGTH;
@@ -178,10 +211,11 @@ static int createCode(struct JsonNode *code) {
 }
 
 static void printHelp(void) {
+	printf("\t -i --id=id\t\t\tcontrol a device with this id\n");
+	printf("\t -a --all\t\t\tsend command to all devices with this id\n");
+	printf("\t -u --unit=unit\t\t\tcontrol a device with this unit code\n");
 	printf("\t -t --on\t\t\tsend an on signal\n");
 	printf("\t -f --off\t\t\tsend an off signal\n");
-	printf("\t -u --unit=unit\t\t\tcontrol a device with this unit code\n");
-	printf("\t -i --id=id\t\t\tcontrol a device with this id\n");
 }
 
 #if !defined(MODULE) && !defined(_WIN32)
@@ -204,10 +238,11 @@ void arctechSwitchOldInit(void) {
 	arctech_switch_old->maxgaplen = MAX_PULSE_LENGTH*PULSE_DIV;
 	arctech_switch_old->mingaplen = MIN_PULSE_LENGTH*PULSE_DIV;
 
+	options_add(&arctech_switch_old->options, 'i', "id", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "^([0-9]{1}|[1][0-5])$");
+	options_add(&arctech_switch_old->options, 'a', "all", OPTION_OPT_VALUE, DEVICES_OPTIONAL, JSON_NUMBER, NULL, NULL);
+	options_add(&arctech_switch_old->options, 'u', "unit", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "^([0-9]{1}|[1][0-5])$");
 	options_add(&arctech_switch_old->options, 't', "on", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
 	options_add(&arctech_switch_old->options, 'f', "off", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
-	options_add(&arctech_switch_old->options, 'u', "unit", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "^([0-9]{1}|[1][0-5])$");
-	options_add(&arctech_switch_old->options, 'i', "id", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "^(3[012]?|[012][0-9]|[0-9]{1})$");
 
 	options_add(&arctech_switch_old->options, 0, "readonly", OPTION_HAS_VALUE, GUI_SETTING, JSON_NUMBER, (void *)0, "^[10]{1}$");
 	options_add(&arctech_switch_old->options, 0, "confirm", OPTION_HAS_VALUE, GUI_SETTING, JSON_NUMBER, (void *)0, "^[10]{1}$");
@@ -221,7 +256,7 @@ void arctechSwitchOldInit(void) {
 #if defined(MODULE) && !defined(_WIN32)
 void compatibility(struct module_t *module) {
 	module->name = "arctech_switch_old";
-	module->version = "2.4";
+	module->version = "2.5";
 	module->reqversion = "6.0";
 	module->reqcommit = "84";
 }
