@@ -425,7 +425,6 @@ static int nano433Receive(struct rawcode_t *r) {
 						pulses[nrpulses++] = atoi(&buffer[s]);
 						x = strlen(&buffer[2]);
 						for(y = 2; y < 2 + x; y++) {
-							r->pulses[r->length++] = pulses[0];
 							r->pulses[r->length++] = pulses[buffer[y] - '0'];
 						}
 						bytes = 0;
