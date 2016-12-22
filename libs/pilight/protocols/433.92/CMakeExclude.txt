@@ -21,6 +21,11 @@ if(${PROTOCOL_COGEX_SWITCH} MATCHES "OFF"
 	list(REMOVE_ITEM ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/arctech_switch_old.h")
 endif()
 
+if(${PROTOCOL_KAKU_REMOTE_OLD} MATCHES "OFF")
+	list(REMOVE_ITEM ${PROJECT_NAME}_sources "${PROJECT_SOURCE_DIR}/arctech_remote_old.c")
+	list(REMOVE_ITEM ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/arctech_remote_old.h")
+endif()
+
 if(${PROTOCOL_RSL366} MATCHES "OFF")
 	list(REMOVE_ITEM ${PROJECT_NAME}_sources "${PROJECT_SOURCE_DIR}/rsl366.c")
 	list(REMOVE_ITEM ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/rsl366.h")
@@ -68,6 +73,11 @@ if(${PROTOCOL_COCO_SWITCH} MATCHES "OFF"
 	AND ${PROTOCOL_INTERTECHNO_SWITCH} MATCHES "OFF")
 	list(REMOVE_ITEM ${PROJECT_NAME}_sources "${PROJECT_SOURCE_DIR}/arctech_switch.c")
 	list(REMOVE_ITEM ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/arctech_switch.h")
+endif()
+
+if(${PROTOCOL_KAKU_REMOTE} MATCHES "OFF")
+	list(REMOVE_ITEM ${PROJECT_NAME}_sources "${PROJECT_SOURCE_DIR}/arctech_remote.c")
+	list(REMOVE_ITEM ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/arctech_remote.h")
 endif()
 
 if(${PROTOCOL_ELRO_SWITCH} MATCHES "OFF" AND ${PROTOCOL_BRENNENSTUHL_SWITCH} MATCHES "OFF")

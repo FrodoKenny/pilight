@@ -54,7 +54,8 @@ typedef enum {
 	MOTION,
 	DUSK,
 	PING,
-	LABEL
+   LABEL,
+   REMOTE
 } devtype_t;
 
 typedef struct protocol_devices_t {
