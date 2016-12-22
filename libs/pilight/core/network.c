@@ -47,6 +47,7 @@
 	#include <ifaddrs.h>
 	#include <pwd.h>
 	#include <sys/ioctl.h>
+	#include <net/if_dl.h>
 #endif
 #include <dirent.h>
 #include <sys/types.h>
